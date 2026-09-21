@@ -105,7 +105,10 @@ export function buildPaymentDetails({
 
     mp_channel_editing: true,
     mp_editing_enabled: true,
-    mp_sandbox_mode: sandboxMode,
+    // mp_sandbox_mode simulates an OFFLINE payment - it does not select the
+    // sandbox environment. mp_core_env does that: "4" = Sandbox V2, "2" = Production V2.
+    mp_sandbox_mode: false,
+    mp_core_env: sandboxMode ? '4' : '2',
     mp_express_mode: false,
     mp_language: FIUU_CONFIG.DEFAULT_LANGUAGE,
   };
