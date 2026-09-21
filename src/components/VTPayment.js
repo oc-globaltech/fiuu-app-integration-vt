@@ -1,0 +1,460 @@
+import { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import * as Linking from 'expo-linking';
+import {
+  buildVTSaleUrl,
+  buildVTStatusUrl,
+  buildVTVoidUrl,
+  parseVTResponse,
+  isVTAppInstalled,
+} from '../utils/vtDeepLink';
+
+export default function VTPayment() {
+  const [vtInstalled, setVtInstalled] = useState(false);
+  const [result, setResult] = useState(null);
+
+  // Transaction fields
+  const [opType, setOpType] = useState('SALE');
+  const [amount, setAmount] = useState('1.01');
+  const [orderId, setOrderId] = useState(`VT-${Date.now()}`);
+  const [currency, setCurrency] = useState('MYR');
+  const [channel, setChannel] = useState('CARD');
+  const [payType, setPayType] = useState('');
+
+  useEffect(() => {
+    // Check if VT app is installed
+    isVTAppInstalled().then(setVtInstalled);
+
+    // Listen for deep link responses from VT app
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const handleDeepLink = (event) => {
+    const parsed = parseVTResponse(event.url);
+    if (parsed) {
+      setResult(parsed);
+      console.log('VT Response:', parsed);
+    }
+  };
+
+  const handleSale = async () => {
+    if (!vtInstalled) {
+      Alert.alert('Error', 'Fiuu VT app is not installed on this device.');
+      return;
+    }
+
+    if (!amount || parseFloat(amount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount.');
+      return;
+    }
+
+    if (!orderId) {
+      Alert.alert('Error', 'Please enter an order ID.');
+      return;
+    }
+
+    const url = buildVTSaleUrl({
+      currency,
+      amount,
+      orderId,
+      channel,
+      payType: channel.includes('RPP') ? '2' : undefined,
+    });
+
+    console.log('Opening VT SALE:', url);
+    setResult(null);
+    await Linking.openURL(url);
+  };
+
+  const handleStatus = async () => {
+    if (!vtInstalled) {
+      Alert.alert('Error', 'Fiuu VT app is not installed on this device.');
+      return;
+    }
+
+    if (!orderId) {
+      Alert.alert('Error', 'Please enter an order ID.');
+      return;
+    }
+
+    const url = buildVTStatusUrl(orderId);
+    console.log('Opening VT STATUS:', url);
+    setResult(null);
+    await Linking.openURL(url);
+  };
+
+  const handleVoid = async () => {
+    if (!vtInstalled) {
+      Alert.alert('Error', 'Fiuu VT app is not installed on this device.');
+      return;
+    }
+
+    if (!orderId) {
+      Alert.alert('Error', 'Please enter an order ID.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Void',
+      `Are you sure you want to void order ${orderId}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Void',
+          style: 'destructive',
+          onPress: async () => {
+            const url = buildVTVoidUrl(orderId);
+            console.log('Opening VT VOID:', url);
+            setResult(null);
+            await Linking.openURL(url);
+          },
+        },
+      ]
+    );
+  };
+
+  const generateNewOrderId = () => {
+    setOrderId(`VT-${Date.now()}`);
+  };
+
+  const renderResult = () => {
+    if (!result) return null;
+
+    const isError = result.type === 'ERROR';
+    const isSuccess = result.status === '00';
+    const statusColor = isError ? '#dc3545' : isSuccess ? '#28a745' : '#ffc107';
+    const statusText = isError
+      ? 'ERROR'
+      : isSuccess
+      ? 'SUCCESS'
+      : result.opType || 'RESPONSE';
+
+    return (
+      <View style={[styles.resultCard, { borderLeftColor: statusColor }]}>
+        <Text style={[styles.resultTitle, { color: statusColor }]}>
+          {statusText}
+        </Text>
+        <Text style={styles.resultLabel}>Response:</Text>
+        <Text style={styles.resultText}>
+          {JSON.stringify(result, null, 2)}
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Text style={styles.header}>Fiuu Virtual Terminal</Text>
+          <Text style={styles.subHeader}>App-to-App Deep Link SDK</Text>
+
+          {!vtInstalled && (
+            <View style={styles.warningCard}>
+              <Text style={styles.warningText}>
+                Fiuu VT app is not installed. Please install it from the App Store / Play Store.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Operation Type</Text>
+            <View style={styles.opTypeRow}>
+              {['SALE', 'STATUS', 'VOID'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.opTypeButton,
+                    opType === type && styles.opTypeButtonActive,
+                  ]}
+                  onPress={() => setOpType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.opTypeButtonText,
+                      opType === type && styles.opTypeButtonTextActive,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Transaction Details</Text>
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholder="Amount *"
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={[styles.input, styles.flex1]}
+                placeholder="Currency"
+                value={currency}
+                onChangeText={setCurrency}
+              />
+            </View>
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholder="Order ID *"
+                value={orderId}
+                onChangeText={setOrderId}
+              />
+              <TouchableOpacity style={styles.smallButton} onPress={generateNewOrderId}>
+                <Text style={styles.smallButtonText}>New ID</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Channel (e.g. CARD, RPP_DuitNowQR-Offline)"
+              value={channel}
+              onChangeText={setChannel}
+            />
+            {channel.includes('RPP') && (
+              <TextInput
+                style={styles.input}
+                placeholder="Pay Type (e.g. 2 for e-wallet)"
+                value={payType}
+                onChangeText={setPayType}
+                keyboardType="numeric"
+              />
+            )}
+          </View>
+
+          {opType === 'SALE' && (
+            <TouchableOpacity
+              style={[styles.actionButton, !vtInstalled && styles.actionButtonDisabled]}
+              onPress={handleSale}
+              disabled={!vtInstalled}
+            >
+              <Text style={styles.actionButtonText}>Sale Transaction</Text>
+            </TouchableOpacity>
+          )}
+
+          {opType === 'STATUS' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.statusButton, !vtInstalled && styles.actionButtonDisabled]}
+              onPress={handleStatus}
+              disabled={!vtInstalled}
+            >
+              <Text style={styles.actionButtonText}>Check Status</Text>
+            </TouchableOpacity>
+          )}
+
+          {opType === 'VOID' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.voidButton, !vtInstalled && styles.actionButtonDisabled]}
+              onPress={handleVoid}
+              disabled={!vtInstalled}
+            >
+              <Text style={styles.actionButtonText}>Void Transaction</Text>
+            </TouchableOpacity>
+          )}
+
+          {renderResult()}
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Fiuu VT SDK v1.0 | Deep Link Integration
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  subHeader: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  warningCard: {
+    backgroundColor: '#fff3cd',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+  },
+  warningText: {
+    color: '#856404',
+    fontSize: 14,
+  },
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  opTypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  opTypeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#e9ecef',
+    alignItems: 'center',
+  },
+  opTypeButtonActive: {
+    backgroundColor: '#00a8e8',
+  },
+  opTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  opTypeButtonTextActive: {
+    color: '#fff',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    marginBottom: 10,
+    backgroundColor: '#fafafa',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flex1: {
+    flex: 1,
+  },
+  marginRight: {
+    marginRight: 8,
+  },
+  smallButton: {
+    backgroundColor: '#e9ecef',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  smallButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  actionButton: {
+    backgroundColor: '#00a8e8',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusButton: {
+    backgroundColor: '#6c757d',
+  },
+  voidButton: {
+    backgroundColor: '#dc3545',
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#adb5bd',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  resultCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  resultLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 4,
+  },
+  resultText: {
+    fontSize: 13,
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#aaa',
+  },
+});
