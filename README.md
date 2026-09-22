@@ -89,6 +89,7 @@ FIUU_USERNAME=...
 FIUU_PASSWORD=...
 FIUU_APP_NAME=FiuuApp                  # must be registered in the Merchant Portal
 FIUU_SANDBOX_MODE=true
+FIUU_APP_TOKEN=...                     # lets the app read its transaction list
 
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
@@ -290,6 +291,7 @@ deno test --allow-import supabase/functions/fiuu-notify/skey_test.ts   # signatu
 |---|---|
 | `POST /` | Fiuu's Notification / Callback URL |
 | `GET /?order_id=X` | The app asking whether an order is paid |
+| `GET /?list=1` | The Transactions tab, gated on `x-app-token` |
 | `GET /` | Health probe — the portal's **Check** button |
 
 ### Signature verification
@@ -318,6 +320,22 @@ notification being silently lost.
 
 `public.fiuu_payments`, one row per `order_id`. **RLS is on with no policies**: the function holds
 the service role key and is the only way in or out. The app never talks to the table directly.
+
+### The transaction list, and its security note
+
+The **Transactions** tab lists every payment Fiuu has notified, newest first, with pull to
+refresh. It reads `GET /?list=1`, which requires an `x-app-token` header matching the
+`FIUU_APP_TOKEN` function secret.
+
+**Understand what this token is worth.** It ships inside the app bundle, so anyone who extracts
+the bundle can read the merchant's transaction list: order IDs, amounts, channels, timestamps. No
+card data is exposed — Fiuu never sends any — and the token grants no write access. For a
+merchant-operated device that is usually an acceptable trade. If this app ever reaches customers'
+phones, replace the shared token with real Supabase auth and per-user RLS.
+
+**Coverage.** A transaction appears only if Fiuu sent a webhook for it, so anything that happened
+before the Notification URL was configured will not be listed. Fiuu's requery / Verify Payment API
+is the way to backfill those; it is not implemented here.
 
 ---
 
@@ -382,14 +400,16 @@ it simulates an *offline* payment.
 ├── src/
 │   ├── components/
 │   │   ├── XDKPayment.js               # In-app checkout + channel selector
-│   │   └── VTPayment.js                # Card terminal via deep link
+│   │   ├── VTPayment.js                # Card terminal via deep link
+│   │   └── Transactions.js             # List of everything Fiuu notified
 │   ├── config/
 │   │   └── channels.js                 # mp_channel codes
 │   └── utils/
 │       ├── vtDeepLink.js               # VT deep link build/parse
 │       ├── paymentResult.js            # Normalises the XDK callback
 │       ├── paymentResult.test.mjs
-│       └── paymentStatus.js            # Asks the server if an order is paid
+│       ├── paymentStatus.js            # Asks the server if an order is paid
+│       └── transactions.js             # Reads the recorded transaction list
 ├── supabase/
 │   ├── functions/fiuu-notify/
 │   │   ├── index.ts                    # Webhook + status lookup

@@ -8,6 +8,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import XDKPayment from './src/components/XDKPayment';
 import VTPayment from './src/components/VTPayment';
+import Transactions from './src/components/Transactions';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('xdk');
@@ -33,10 +34,20 @@ export default function App() {
             Virtual Terminal
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'txn' && styles.tabActive]}
+          onPress={() => setActiveTab('txn')}
+        >
+          <Text style={[styles.tabText, activeTab === 'txn' && styles.tabTextActive]}>
+            Transactions
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.screen}>
-        {activeTab === 'xdk' ? <XDKPayment /> : <VTPayment />}
+        {activeTab === 'xdk' && <XDKPayment />}
+        {activeTab === 'vt' && <VTPayment />}
+        {activeTab === 'txn' && <Transactions />}
       </View>
     </View>
   );
@@ -61,13 +72,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
   },
   tabActive: {
     backgroundColor: '#00a8e8',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#495057',
   },

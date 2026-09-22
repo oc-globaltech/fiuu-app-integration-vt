@@ -85,6 +85,26 @@ Deno.serve(async (req: Request) => {
       return Response.json({ count: data?.length ?? 0, recent: data ?? [] });
     }
 
+    // Transaction list for the app. The endpoint is public (Fiuu cannot send a
+    // JWT), so it is gated on a shared token the app carries. That token ships
+    // in the bundle and is extractable - see the README security note - so this
+    // exposes the merchant's own transaction list. It never exposes card data,
+    // which Fiuu does not send here.
+    if (url.searchParams.get('list') === '1') {
+      const appToken = Deno.env.get('FIUU_APP_TOKEN');
+      if (!appToken || req.headers.get('x-app-token') !== appToken) {
+        return Response.json({ error: 'unauthorised' }, { status: 401 });
+      }
+      const limit = Math.min(Number(url.searchParams.get('limit') ?? 100) || 100, 200);
+      const { data, error } = await db
+        .from('fiuu_payments')
+        .select('order_id, txn_id, status, amount, currency, channel, paydate, verified, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) return Response.json({ error: error.message }, { status: 500 });
+      return Response.json({ count: data?.length ?? 0, transactions: data ?? [] });
+    }
+
     const orderId = url.searchParams.get('order_id');
     // Fiuu's portal "Check" button probes the endpoint with no parameters and
     // treats any non-2xx as a failure, so a bare GET must answer 200.
