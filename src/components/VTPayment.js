@@ -21,6 +21,11 @@ import {
   isVTAppInstalled,
 } from '../utils/vtDeepLink';
 import { confirmPayment } from '../utils/paymentStatus';
+import {
+  savePendingOrder,
+  readPendingOrder,
+  clearPendingOrder,
+} from '../utils/pendingOrder';
 
 export default function VTPayment({ incomingLink }) {
   const [vtInstalled, setVtInstalled] = useState(false);
@@ -48,6 +53,16 @@ export default function VTPayment({ incomingLink }) {
     // Check if VT app is installed
     isVTAppInstalled().then(setVtInstalled);
 
+    // iOS may have reclaimed us while the VT app was in front. If an order was
+    // outstanding when that happened, it is on disk - pick it up and confirm,
+    // so a tap is not lost just because the app restarted.
+    const outstanding = readPendingOrder();
+    if (outstanding) {
+      pendingOrder.current = outstanding.orderId;
+      setOrderId(outstanding.orderId);
+      checkServer(outstanding.orderId);
+    }
+
     // iOS suspends our timers while the VT app is in front, so the deep link is
     // not the only way back - the cashier may just switch apps. Whenever we
     // become active again with a sale outstanding, ask the server what Fiuu
@@ -68,7 +83,11 @@ export default function VTPayment({ incomingLink }) {
     confirmPayment(id, { attempts: 20, delayMs: 2000, maxDelayMs: 6000 }).then(
       (outcome) => {
         setConfirmation(outcome);
-        if (outcome.state === 'confirmed') pendingOrder.current = null;
+        // Only stop waiting once the server has actually answered about it.
+        if (outcome.state === 'confirmed' || outcome.state === 'recorded') {
+          pendingOrder.current = null;
+          clearPendingOrder();
+        }
       },
     );
   };
@@ -129,6 +148,7 @@ export default function VTPayment({ incomingLink }) {
     setResult(null);
     setConfirmation(null);
     pendingOrder.current = orderId;
+    savePendingOrder(orderId);
     await Linking.openURL(url);
   };
 

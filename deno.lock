@@ -19,6 +19,7 @@
     "packageJson": {
       "dependencies": [
         "npm:babel-preset-expo@^57.0.12",
+        "npm:expo-file-system@~57.0.7",
         "npm:expo-linking@^57.0.10",
         "npm:expo-status-bar@~57.0.1",
         "npm:expo@~57.0.24",

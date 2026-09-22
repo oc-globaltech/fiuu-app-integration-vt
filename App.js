@@ -11,6 +11,7 @@ import XDKPayment from './src/components/XDKPayment';
 import VTPayment from './src/components/VTPayment';
 import Transactions from './src/components/Transactions';
 import { parseVTResponse } from './src/utils/vtDeepLink';
+import { readPendingOrder } from './src/utils/pendingOrder';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('xdk');
@@ -33,6 +34,11 @@ export default function App() {
     const subscription = Linking.addEventListener('url', ({ url }) => receive(url));
     // Covers the cold start: the app was launched by the return link itself.
     Linking.getInitialURL().then(receive);
+
+    // And the case with no link at all: iOS reclaimed us during a payment and
+    // the user reopened the app by hand. An order left outstanding on disk
+    // means a tap may have completed, so open the tab that will confirm it.
+    if (readPendingOrder()) setActiveTab('vt');
 
     return () => subscription.remove();
   }, []);

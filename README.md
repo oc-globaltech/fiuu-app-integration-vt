@@ -223,6 +223,8 @@ This is the terminal flow. Requires the Fiuu VT app and a physical device.
    - let the VT app return you (the deep link), or
    - switch apps manually, to prove the webhook path works without the deep link, or
    - force-quit this app first, to prove a cold start still delivers the result
+   - force-quit it **and** dismiss the VT app's return, then reopen this app by its icon:
+     the outstanding order is on disk, so it still opens on the VT tab and confirms
 
    Any of the three must land you on the **Virtual Terminal** tab with an alert saying whether
    the payment succeeded, then a server confirmation underneath.
@@ -288,6 +290,7 @@ python3 scripts/test-webhook.py
 # Unit tests
 node src/utils/paymentResult.test.mjs                                  # result parsing, 12 assertions
 node src/utils/deepLinkRouting.test.mjs                                # VT return routing
+node src/utils/pendingOrder.test.mjs                                   # cold-start recovery
 deno test --allow-import supabase/functions/fiuu-notify/skey_test.ts   # signature, 6 tests
 ```
 
@@ -429,6 +432,8 @@ it simulates an *offline* payment.
 │       ├── paymentResult.test.mjs
 │       ├── paymentStatus.js            # Asks the server if an order is paid
 │       ├── deepLinkRouting.test.mjs     # VT return link routing
+│       ├── pendingOrder.js              # Survives the app being killed mid-payment
+│       ├── pendingOrder.test.mjs
 │       └── transactions.js             # Reads the recorded transaction list
 ├── supabase/
 │   ├── functions/fiuu-notify/
