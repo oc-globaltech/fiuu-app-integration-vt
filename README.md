@@ -274,12 +274,25 @@ curl -s "$U?debug=<token>&order_id=DEMO361"
 
 The listing is inert unless `FIUU_DEBUG_TOKEN` is set. Unset it when you are done.
 
-### Running the unit tests
+### Running the tests
 
 ```bash
-node src/utils/paymentResult.test.mjs                        # result parsing, 12 assertions
+# End-to-end against the DEPLOYED webhook - 21 checks, cleans up after itself
+python3 scripts/test-webhook.py
+
+# Unit tests
+node src/utils/paymentResult.test.mjs                                  # result parsing, 12 assertions
 deno test --allow-import supabase/functions/fiuu-notify/skey_test.ts   # signature, 6 tests
 ```
+
+`scripts/test-webhook.py` signs payloads with the real merchant secret from `.env`, so it
+exercises exactly the path Fiuu takes. It covers the health probe, a genuine notification, a
+forged signature, a payload tampered with after signing, a declined payment, list authorisation,
+and unknown orders. It removes every row it creates, provided `FIUU_DEBUG_TOKEN` is set in `.env`
+and as a function secret.
+
+Run it after any change to the function, and any time payments stop being confirmed — it
+distinguishes a broken webhook from a Fiuu-side configuration problem in one command.
 
 ---
 

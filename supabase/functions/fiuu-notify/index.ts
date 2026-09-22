@@ -122,6 +122,24 @@ Deno.serve(async (req: Request) => {
     return Response.json({ paid, payment: data ?? null });
   }
 
+  // Operator-only cleanup, so the end-to-end test can remove the rows it makes
+  // instead of leaving test data among real payments. Gated on the same debug
+  // secret as the listing, and inert unless that secret is set.
+  if (req.method === 'DELETE') {
+    const url = new URL(req.url);
+    const debugToken = Deno.env.get('FIUU_DEBUG_TOKEN');
+    const orderId = url.searchParams.get('order_id');
+    if (!debugToken || url.searchParams.get('debug') !== debugToken) {
+      return Response.json({ error: 'unauthorised' }, { status: 401 });
+    }
+    if (!orderId) {
+      return Response.json({ error: 'order_id required' }, { status: 400 });
+    }
+    const { error } = await db.from('fiuu_payments').delete().eq('order_id', orderId);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ deleted: orderId });
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
