@@ -66,8 +66,10 @@ async function acknowledge(p: Record<string, string>): Promise<void> {
 Deno.serve(async (req: Request) => {
   if (req.method === 'GET') {
     const orderId = new URL(req.url).searchParams.get('order_id');
+    // Fiuu's portal "Check" button probes the endpoint with no parameters and
+    // treats any non-2xx as a failure, so a bare GET must answer 200.
     if (!orderId) {
-      return Response.json({ error: 'order_id required' }, { status: 400 });
+      return Response.json({ ok: true, endpoint: 'fiuu-notify' });
     }
     const { data } = await db
       .from('fiuu_payments')
