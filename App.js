@@ -1,17 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import XDKPayment from './src/components/XDKPayment';
 import VTPayment from './src/components/VTPayment';
 import Transactions from './src/components/Transactions';
+import { parseVTResponse } from './src/utils/vtDeepLink';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('xdk');
+  // The VT app's return link, held here rather than in VTPayment. A screen only
+  // listens while it is mounted, and this one is not mounted unless its tab is
+  // open - so a link that cold-starts the app (iOS having killed us while the
+  // VT app was in front) would land on the XDK tab and the result would be
+  // dropped. Listening at the root means the return is caught whatever is on
+  // screen, and we switch to the VT tab to show it.
+  const [vtLink, setVtLink] = useState(null);
+
+  useEffect(() => {
+    const receive = (url) => {
+      if (!url || !parseVTResponse(url)) return;
+      setActiveTab('vt');
+      // Stamped so the same URL arriving twice still re-triggers the effect.
+      setVtLink({ url, receivedAt: Date.now() });
+    };
+
+    const subscription = Linking.addEventListener('url', ({ url }) => receive(url));
+    // Covers the cold start: the app was launched by the return link itself.
+    Linking.getInitialURL().then(receive);
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -46,7 +70,7 @@ export default function App() {
 
       <View style={styles.screen}>
         {activeTab === 'xdk' && <XDKPayment />}
-        {activeTab === 'vt' && <VTPayment />}
+        {activeTab === 'vt' && <VTPayment incomingLink={vtLink} />}
         {activeTab === 'txn' && <Transactions />}
       </View>
     </View>

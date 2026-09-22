@@ -219,8 +219,13 @@ This is the terminal flow. Requires the Fiuu VT app and a physical device.
 3. Set Amount and Order ID, channel `CARD`.
 4. Tap **SALE** → the Fiuu VT app opens.
 5. **Tap a card** on the phone.
-6. Return to this app — **by any route**. Let VT return you, *or* switch apps manually to prove
-   the webhook path works without the deep link.
+6. Return to this app — **by any route**:
+   - let the VT app return you (the deep link), or
+   - switch apps manually, to prove the webhook path works without the deep link, or
+   - force-quit this app first, to prove a cold start still delivers the result
+
+   Any of the three must land you on the **Virtual Terminal** tab with an alert saying whether
+   the payment succeeded, then a server confirmation underneath.
 
 **Expected:** the Server card moves from *"Waiting for Fiuu to notify our server…"* to
 *"Payment confirmed by server (txn …)"*. That transition is the whole point — it means Fiuu's
@@ -282,6 +287,7 @@ python3 scripts/test-webhook.py
 
 # Unit tests
 node src/utils/paymentResult.test.mjs                                  # result parsing, 12 assertions
+node src/utils/deepLinkRouting.test.mjs                                # VT return routing
 deno test --allow-import supabase/functions/fiuu-notify/skey_test.ts   # signature, 6 tests
 ```
 
@@ -422,6 +428,7 @@ it simulates an *offline* payment.
 │       ├── paymentResult.js            # Normalises the XDK callback
 │       ├── paymentResult.test.mjs
 │       ├── paymentStatus.js            # Asks the server if an order is paid
+│       ├── deepLinkRouting.test.mjs     # VT return link routing
 │       └── transactions.js             # Reads the recorded transaction list
 ├── supabase/
 │   ├── functions/fiuu-notify/

@@ -22,7 +22,7 @@ import {
 } from '../utils/vtDeepLink';
 import { confirmPayment } from '../utils/paymentStatus';
 
-export default function VTPayment() {
+export default function VTPayment({ incomingLink }) {
   const [vtInstalled, setVtInstalled] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -38,17 +38,15 @@ export default function VTPayment() {
   // the current value rather than the one captured when it was registered.
   const pendingOrder = useRef(null);
 
+  // The VT app's return link is caught by App, which listens at the root so a
+  // link that cold-starts the app is not missed while this screen is unmounted.
+  useEffect(() => {
+    if (incomingLink?.url) handleDeepLink({ url: incomingLink.url });
+  }, [incomingLink]);
+
   useEffect(() => {
     // Check if VT app is installed
     isVTAppInstalled().then(setVtInstalled);
-
-    // Listen for deep link responses from VT app
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-
-    // Check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink({ url });
-    });
 
     // iOS suspends our timers while the VT app is in front, so the deep link is
     // not the only way back - the cashier may just switch apps. Whenever we
@@ -61,10 +59,7 @@ export default function VTPayment() {
       }
     });
 
-    return () => {
-      subscription.remove();
-      appStateSub.remove();
-    };
+    return () => appStateSub.remove();
   }, []);
 
   const checkServer = (id) => {
@@ -83,6 +78,23 @@ export default function VTPayment() {
     if (parsed) {
       setResult(parsed);
       console.log('VT Response:', parsed);
+
+      // Say plainly what happened, so returning from the VT app cannot look
+      // like nothing happened.
+      if (parsed.type === 'ERROR') {
+        Alert.alert('Payment ERROR', parsed.errorMsg || parsed.errorCode || 'Unknown error');
+      } else {
+        const label = parsed.status === '00' ? 'SUCCESS'
+          : parsed.status === '22' ? 'PENDING'
+          : parsed.status === '44' ? 'VOIDED'
+          : 'FAILED';
+        Alert.alert(
+          `Payment ${label}`,
+          `Order ${parsed.orderId || ''}${parsed.amount ? ` - ${parsed.currency || ''} ${parsed.amount}` : ''}`
+            + '\n\nConfirming with the server...',
+        );
+      }
+
       // The deep link is the device's account of the payment. Confirm it
       // against what Fiuu actually notified before treating it as money.
       if (parsed.orderId) checkServer(parsed.orderId);
