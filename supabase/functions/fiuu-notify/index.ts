@@ -65,7 +65,27 @@ async function acknowledge(p: Record<string, string>): Promise<void> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'GET') {
-    const orderId = new URL(req.url).searchParams.get('order_id');
+    const url = new URL(req.url);
+
+    // Operator-only listing, for answering "did Fiuu ever call us?". Guarded by
+    // a shared secret because this endpoint is public (Fiuu cannot send a JWT).
+    const debugToken = Deno.env.get('FIUU_DEBUG_TOKEN');
+    if (debugToken && url.searchParams.get('debug') === debugToken) {
+      const wanted = url.searchParams.get('order_id');
+      if (wanted) {
+        const { data } = await db
+          .from('fiuu_payments').select('*').eq('order_id', wanted).maybeSingle();
+        return Response.json({ payment: data ?? null });
+      }
+      const { data } = await db
+        .from('fiuu_payments')
+        .select('order_id, txn_id, status, amount, channel, verified, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      return Response.json({ count: data?.length ?? 0, recent: data ?? [] });
+    }
+
+    const orderId = url.searchParams.get('order_id');
     // Fiuu's portal "Check" button probes the endpoint with no parameters and
     // treats any non-2xx as a failure, so a bare GET must answer 200.
     if (!orderId) {
