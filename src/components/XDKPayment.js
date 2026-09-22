@@ -15,6 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { startPayment } from 'fiuu-mobile-xdk-expo';
 import { parsePaymentResult, STATUS_COLORS } from '../utils/paymentResult';
+import { confirmPayment } from '../utils/paymentStatus';
 import {
   CHANNEL_GROUPS,
   MULTI_CHANNEL,
@@ -44,6 +45,7 @@ export default function XDKPayment() {
   const [orderId, setOrderId] = useState(`ORDER-${Date.now()}`);
   const [channel, setChannel] = useState(MULTI_CHANNEL);
   const [channelOpen, setChannelOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
   const [currency, setCurrency] = useState('MYR');
   const [country, setCountry] = useState('MY');
   const [billName, setBillName] = useState('');
@@ -98,6 +100,7 @@ export default function XDKPayment() {
 
     setLoading(true);
     setResult(null);
+    setConfirmation(null);
 
     startPayment(paymentDetails, (paymentResult) => {
       setLoading(false);
@@ -109,11 +112,35 @@ export default function XDKPayment() {
         `Payment ${parsed.status}`,
         parsed.message || `Order ${parsed.orderId || orderId}`
       );
+
+      // The device's word is not proof. Ask our server what Fiuu actually
+      // notified, which is the record that counts.
+      setConfirmation({ state: 'checking' });
+      confirmPayment(parsed.orderId || orderId).then(setConfirmation);
     });
   };
 
   const generateNewOrderId = () => {
     setOrderId(`ORDER-${Date.now()}`);
+  };
+
+  const renderConfirmation = () => {
+    if (!confirmation) return null;
+
+    const { state, payment, error } = confirmation;
+    const text = {
+      checking: 'Checking with server\u2026',
+      confirmed: `Confirmed by server (txn ${payment?.txn_id || 'n/a'})`,
+      recorded: `Server recorded status ${payment?.status}${payment?.verified ? '' : ' (skey did NOT verify)'}`,
+      pending: 'No webhook received yet - not confirmed',
+      unavailable: `Could not reach server${error ? `: ${error}` : ''}`,
+    }[state];
+
+    const color = state === 'confirmed' ? STATUS_COLORS.SUCCESS
+      : state === 'recorded' ? STATUS_COLORS.FAILED
+      : STATUS_COLORS.PENDING;
+
+    return <Text style={[styles.confirmLine, { color }]}>{text}</Text>;
   };
 
   const renderResult = () => {
@@ -137,6 +164,7 @@ export default function XDKPayment() {
             Amount: {paidAmount} {fields.currency || ''}
           </Text>
         )}
+        {renderConfirmation()}
         <Text style={styles.resultLabel}>Raw response:</Text>
         <Text style={styles.resultText}>{JSON.stringify(fields, null, 2)}</Text>
       </View>
@@ -454,6 +482,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  confirmLine: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 6,
+    marginBottom: 2,
   },
   channelSelect: {
     flexDirection: 'row',
