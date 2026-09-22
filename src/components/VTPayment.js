@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import { AppState } from 'react-native';
 import {
   buildVTSaleUrl,
   buildVTStatusUrl,
@@ -19,6 +20,7 @@ import {
   parseVTResponse,
   isVTAppInstalled,
 } from '../utils/vtDeepLink';
+import { confirmPayment } from '../utils/paymentStatus';
 
 export default function VTPayment() {
   const [vtInstalled, setVtInstalled] = useState(false);
@@ -31,6 +33,10 @@ export default function VTPayment() {
   const [currency, setCurrency] = useState('MYR');
   const [channel, setChannel] = useState('CARD');
   const [payType, setPayType] = useState('');
+  const [confirmation, setConfirmation] = useState(null);
+  // The order we are waiting on. A ref so the AppState listener always reads
+  // the current value rather than the one captured when it was registered.
+  const pendingOrder = useRef(null);
 
   useEffect(() => {
     // Check if VT app is installed
@@ -44,14 +50,42 @@ export default function VTPayment() {
       if (url) handleDeepLink({ url });
     });
 
-    return () => subscription.remove();
+    // iOS suspends our timers while the VT app is in front, so the deep link is
+    // not the only way back - the cashier may just switch apps. Whenever we
+    // become active again with a sale outstanding, ask the server what Fiuu
+    // notified. This is what makes a card tap detectable even if VT never
+    // deep-links back to us.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && pendingOrder.current) {
+        checkServer(pendingOrder.current);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      appStateSub.remove();
+    };
   }, []);
+
+  const checkServer = (id) => {
+    setConfirmation({ state: 'checking' });
+    // A terminal tap takes a while: poll for roughly two minutes.
+    confirmPayment(id, { attempts: 20, delayMs: 2000, maxDelayMs: 6000 }).then(
+      (outcome) => {
+        setConfirmation(outcome);
+        if (outcome.state === 'confirmed') pendingOrder.current = null;
+      },
+    );
+  };
 
   const handleDeepLink = (event) => {
     const parsed = parseVTResponse(event.url);
     if (parsed) {
       setResult(parsed);
       console.log('VT Response:', parsed);
+      // The deep link is the device's account of the payment. Confirm it
+      // against what Fiuu actually notified before treating it as money.
+      if (parsed.orderId) checkServer(parsed.orderId);
     }
   };
 
@@ -81,6 +115,8 @@ export default function VTPayment() {
 
     console.log('Opening VT SALE:', url);
     setResult(null);
+    setConfirmation(null);
+    pendingOrder.current = orderId;
     await Linking.openURL(url);
   };
 
@@ -133,6 +169,30 @@ export default function VTPayment() {
 
   const generateNewOrderId = () => {
     setOrderId(`VT-${Date.now()}`);
+  };
+
+  const renderConfirmation = () => {
+    if (!confirmation) return null;
+
+    const { state, payment, error } = confirmation;
+    const text = {
+      checking: 'Waiting for Fiuu to notify our server\u2026',
+      confirmed: `Payment confirmed by server (txn ${payment?.txn_id || 'n/a'})`,
+      recorded: `Server recorded status ${payment?.status}${payment?.verified ? '' : ' (skey did NOT verify)'}`,
+      pending: 'No webhook received - payment not confirmed',
+      unavailable: `Could not reach server${error ? `: ${error}` : ''}`,
+    }[state];
+
+    const color = state === 'confirmed' ? '#28a745'
+      : state === 'recorded' ? '#dc3545'
+      : '#ffc107';
+
+    return (
+      <View style={[styles.resultCard, { borderLeftColor: color }]}>
+        <Text style={[styles.resultTitle, { color }]}>Server</Text>
+        <Text style={styles.resultLabel}>{text}</Text>
+      </View>
+    );
   };
 
   const renderResult = () => {
@@ -278,6 +338,7 @@ export default function VTPayment() {
             </TouchableOpacity>
           )}
 
+          {renderConfirmation()}
           {renderResult()}
 
           <View style={styles.footer}>

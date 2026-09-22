@@ -24,7 +24,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  *   pending     - nothing recorded yet; the webhook has not arrived.
  *   unavailable - we could not reach the server; says nothing about the payment.
  */
-export async function confirmPayment(orderId, { attempts = 4, delayMs = 2000 } = {}) {
+export async function confirmPayment(
+  orderId,
+  { attempts = 4, delayMs = 2000, maxDelayMs = 8000 } = {},
+) {
   if (!FUNCTION_URL) {
     return { state: 'unavailable', paid: false, payment: null, error: 'SUPABASE_URL not set' };
   }
@@ -32,7 +35,9 @@ export async function confirmPayment(orderId, { attempts = 4, delayMs = 2000 } =
   let lastError;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
-    if (attempt > 0) await sleep(delayMs * attempt); // back off: 0s, 2s, 4s, 6s
+    // Back off, but cap it so long polls stay responsive rather than
+    // stretching to minutes between checks.
+    if (attempt > 0) await sleep(Math.min(delayMs * attempt, maxDelayMs));
 
     try {
       const response = await fetch(
