@@ -10,10 +10,11 @@
  */
 
 import * as Linking from 'expo-linking';
+import { MERCHANT_URL_SCHEME, MERCHANT_HOST } from './vtResponse';
+
+export { parseVTResponse } from './vtResponse';
 
 const VT_APP_URL = 'razervt://merchant.razer.com';
-const MERCHANT_URL_SCHEME = 'fiuuapp';
-const MERCHANT_HOST = 'vt.callback';
 
 /**
  * Build a deep link URL to open Fiuu VT app for a SALE transaction
@@ -76,48 +77,6 @@ export function buildVTVoidUrl(orderId) {
   });
 
   return `${VT_APP_URL}?${params.toString()}`;
-}
-
-/**
- * Parse a response deep link from Fiuu VT app
- *
- * @param {string} url - The incoming deep link URL
- * @returns {Object|null} Parsed response or null if not a VT response
- */
-export function parseVTResponse(url) {
-  if (!url) return null;
-
-  const parsed = Linking.parse(url);
-
-  // Only handle URLs from our expected scheme and host
-  if (parsed.scheme !== MERCHANT_URL_SCHEME || parsed.path !== MERCHANT_HOST) {
-    return null;
-  }
-
-  const query = parsed.queryParams || {};
-
-  // Check if it's an error response
-  if (query.errorCode) {
-    return {
-      type: 'ERROR',
-      opType: query.opType || null,
-      errorCode: query.errorCode,
-      errorMsg: query.errorMsg || 'Unknown error',
-    };
-  }
-
-  // Success/pending response
-  return {
-    type: 'RESPONSE',
-    opType: query.opType || null,
-    status: query.status || null,
-    tranID: query.tranID || null,
-    orderId: query.orderid || null,
-    amount: query.amount || null,
-    currency: query.currency || null,
-    channel: query.channel || null,
-    payDate: query.payDate || null,
-  };
 }
 
 /**

@@ -443,7 +443,8 @@ it simulates an *offline* payment.
 │   ├── config/
 │   │   └── channels.js                 # mp_channel codes
 │   └── utils/
-│       ├── vtDeepLink.js               # VT deep link build/parse
+│       ├── vtDeepLink.js               # VT deep link build
+│       ├── vtResponse.js               # VT return link parse (not Linking.parse)
 │       ├── paymentResult.js            # Normalises the XDK callback
 │       ├── paymentResult.test.mjs
 │       ├── paymentStatus.js            # Asks the server if an order is paid
