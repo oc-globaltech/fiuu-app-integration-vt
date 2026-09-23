@@ -196,6 +196,8 @@ strings "$B" | grep -c "$SK"    # must print 0
 
 ### Test 1 — Mobile XDK (in-app checkout)
 
+<img src="docs/screenshots/xdk.png" alt="Mobile XDK tab" width="260">
+
 1. Launch the app, stay on the **Mobile XDK** tab.
 2. Credentials auto-fill from `.env`. Check Merchant ID matches your account.
 3. Set an **Amount** of at least `1.01` (Fiuu rejects less).
@@ -214,10 +216,13 @@ it, a **Server** line showing whether the webhook confirmed it.
 
 This is the terminal flow. Requires the Fiuu VT app and a physical device.
 
+<img src="docs/screenshots/vt.png" alt="Virtual Terminal tab" width="260">
+
 1. Switch to the **Virtual Terminal** tab.
 2. Confirm it does not warn that the VT app is missing.
 3. Set Amount and Order ID, channel `CARD`.
-4. Tap **SALE** → the Fiuu VT app opens.
+4. Tap **SALE** → the Fiuu VT app opens. If it warns the reader is busy (AE27), see
+   [Troubleshooting](#the-reader-is-busy-with-another-session-ae27).
 5. **Tap a card** on the phone.
 6. Return to this app — **by any route**:
    - let the VT app return you (the deep link), or
@@ -234,6 +239,10 @@ This is the terminal flow. Requires the Fiuu VT app and a physical device.
 webhook arrived and its signature verified, independent of the device.
 
 The app polls for roughly two minutes after returning to the foreground.
+
+The confirmed payment then shows on the **Transactions** tab, marked **PAID**:
+
+<img src="docs/screenshots/txn.png" alt="Transactions tab with a paid order" width="260">
 
 ### Reading the Server card
 
@@ -405,6 +414,13 @@ survive regeneration. If you see this crash, confirm the plugin is listed in `ap
 
 `razervt` must be in `LSApplicationQueriesSchemes` (it is, via `app.json`), and the Fiuu VT app
 must be installed.
+
+### "The reader is busy with another session. (AE27)"
+
+<img src="docs/screenshots/vt-app-ae27.png" alt="Fiuu VT app showing the AE27 reader busy warning" width="260">
+
+The Fiuu VT app is still holding an earlier Tap to Pay session. Tap **OK**, force-quit Fiuu VT,
+then tap **New ID** and **SALE** again. If it persists, restart the phone.
 
 ### Sandbox environment is not used
 
