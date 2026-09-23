@@ -11,10 +11,10 @@
  */
 
 export const STATUS_COLORS = {
-  SUCCESS: '#28a745',
-  PENDING: '#ffc107',
-  FAILED: '#dc3545',
-  CANCELLED: '#6c757d',
+  SUCCESS: '#8ed462',
+  PENDING: '#f5e211',
+  FAILED: '#ff705d',
+  CANCELLED: '#e0dbce',
 };
 
 const STATUS_BY_CODE = {

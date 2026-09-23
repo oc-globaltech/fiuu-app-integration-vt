@@ -504,6 +504,14 @@ it simulates an *offline* payment.
 - [Payment status notification / IPN](https://e2payprod.gitbook.io/payment-gateway/api-documentation/technical-doc-of-fiuu-id/payment-response-parameter/payment-status-notification-merchant-webhook-or-the-3-endpoints)
 - [Fiuu API cheatsheet](https://github.com/FiuuPayment/Cheatsheet-BestPractices-Fiuu_API)
 
+### Design credits
+
+The screen characters in `assets/lottie/` are free animations from LottieFiles (Lottie Simple License):
+
+- `pay.json`: [Man done online Pay](https://lottiefiles.com/animations/man-done-online-pay-dtQ8gPDnSB) by Riju Shah
+- `terminal.json`: [payment](https://lottiefiles.com/animations/payment-qzSKWVuVC6) by talabal293
+- `notify.json`: [Notification](https://lottiefiles.com/animations/notification-fRmWdtHrvS) by Mikhail Voloshin
+
 ### Support
 
 - Merchant support: support@fiuu.com

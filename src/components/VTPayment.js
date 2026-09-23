@@ -26,6 +26,10 @@ import {
   readPendingOrder,
   clearPendingOrder,
 } from '../utils/pendingOrder';
+import { STATUS_COLORS } from '../utils/paymentResult';
+import Hero from './Hero';
+import Pill from './Pill';
+import { colors, fonts, ui } from '../theme';
 
 export default function VTPayment({ incomingLink }) {
   const [vtInstalled, setVtInstalled] = useState(false);
@@ -215,13 +219,13 @@ export default function VTPayment({ incomingLink }) {
       unavailable: `Could not reach server${error ? `: ${error}` : ''}`,
     }[state];
 
-    const color = state === 'confirmed' ? '#28a745'
-      : state === 'recorded' ? '#dc3545'
-      : '#ffc107';
+    const color = state === 'confirmed' ? STATUS_COLORS.SUCCESS
+      : state === 'recorded' ? STATUS_COLORS.FAILED
+      : STATUS_COLORS.PENDING;
 
     return (
-      <View style={[styles.resultCard, { borderLeftColor: color }]}>
-        <Text style={[styles.resultTitle, { color }]}>Server</Text>
+      <View style={styles.resultCard}>
+        <Text style={[styles.resultTitle, { backgroundColor: color }]}>Server</Text>
         <Text style={styles.resultLabel}>{text}</Text>
       </View>
     );
@@ -232,7 +236,9 @@ export default function VTPayment({ incomingLink }) {
 
     const isError = result.type === 'ERROR';
     const isSuccess = result.status === '00';
-    const statusColor = isError ? '#dc3545' : isSuccess ? '#28a745' : '#ffc107';
+    const statusColor = isError ? STATUS_COLORS.FAILED
+      : isSuccess ? STATUS_COLORS.SUCCESS
+      : STATUS_COLORS.PENDING;
     const statusText = isError
       ? 'ERROR'
       : isSuccess
@@ -240,11 +246,11 @@ export default function VTPayment({ incomingLink }) {
       : result.opType || 'RESPONSE';
 
     return (
-      <View style={[styles.resultCard, { borderLeftColor: statusColor }]}>
-        <Text style={[styles.resultTitle, { color: statusColor }]}>
+      <View style={styles.resultCard}>
+        <Text style={[styles.resultTitle, { backgroundColor: statusColor }]}>
           {statusText}
         </Text>
-        <Text style={styles.resultLabel}>Response:</Text>
+        <Text style={styles.rawLabel}>Response</Text>
         <Text style={styles.resultText}>
           {JSON.stringify(result, null, 2)}
         </Text>
@@ -259,8 +265,11 @@ export default function VTPayment({ incomingLink }) {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <Text style={styles.header}>Fiuu Virtual Terminal</Text>
-          <Text style={styles.subHeader}>App-to-App Deep Link SDK</Text>
+          <Hero
+            lines={['Virtual', 'Terminal']}
+            tagline="Hand off to the Fiuu VT app, tap, come back."
+            character={require('../../assets/lottie/terminal.json')}
+          />
 
           {!vtInstalled && (
             <View style={styles.warningCard}>
@@ -283,10 +292,7 @@ export default function VTPayment({ incomingLink }) {
                   onPress={() => setOpType(type)}
                 >
                   <Text
-                    style={[
-                      styles.opTypeButtonText,
-                      opType === type && styles.opTypeButtonTextActive,
-                    ]}
+                    style={styles.opTypeButtonText}
                   >
                     {type}
                   </Text>
@@ -300,6 +306,7 @@ export default function VTPayment({ incomingLink }) {
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholderTextColor={colors.stone}
                 placeholder="Amount *"
                 value={amount}
                 onChangeText={setAmount}
@@ -307,6 +314,7 @@ export default function VTPayment({ incomingLink }) {
               />
               <TextInput
                 style={[styles.input, styles.flex1]}
+                placeholderTextColor={colors.stone}
                 placeholder="Currency"
                 value={currency}
                 onChangeText={setCurrency}
@@ -315,16 +323,16 @@ export default function VTPayment({ incomingLink }) {
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholderTextColor={colors.stone}
                 placeholder="Order ID *"
                 value={orderId}
                 onChangeText={setOrderId}
               />
-              <TouchableOpacity style={styles.smallButton} onPress={generateNewOrderId}>
-                <Text style={styles.smallButtonText}>New ID</Text>
-              </TouchableOpacity>
+              <Pill title="New ID" onPress={generateNewOrderId} style={styles.smallButton} />
             </View>
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Channel (e.g. CARD, RPP_DuitNowQR-Offline)"
               value={channel}
               onChangeText={setChannel}
@@ -332,6 +340,7 @@ export default function VTPayment({ incomingLink }) {
             {channel.includes('RPP') && (
               <TextInput
                 style={styles.input}
+                placeholderTextColor={colors.stone}
                 placeholder="Pay Type (e.g. 2 for e-wallet)"
                 value={payType}
                 onChangeText={setPayType}
@@ -340,35 +349,13 @@ export default function VTPayment({ incomingLink }) {
             )}
           </View>
 
-          {opType === 'SALE' && (
-            <TouchableOpacity
-              style={[styles.actionButton, !vtInstalled && styles.actionButtonDisabled]}
-              onPress={handleSale}
-              disabled={!vtInstalled}
-            >
-              <Text style={styles.actionButtonText}>Sale Transaction</Text>
-            </TouchableOpacity>
-          )}
-
-          {opType === 'STATUS' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.statusButton, !vtInstalled && styles.actionButtonDisabled]}
-              onPress={handleStatus}
-              disabled={!vtInstalled}
-            >
-              <Text style={styles.actionButtonText}>Check Status</Text>
-            </TouchableOpacity>
-          )}
-
-          {opType === 'VOID' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.voidButton, !vtInstalled && styles.actionButtonDisabled]}
-              onPress={handleVoid}
-              disabled={!vtInstalled}
-            >
-              <Text style={styles.actionButtonText}>Void Transaction</Text>
-            </TouchableOpacity>
-          )}
+          <Pill
+            variant="action"
+            title={{ SALE: 'Sale Transaction', STATUS: 'Check Status', VOID: 'Void Transaction' }[opType]}
+            onPress={{ SALE: handleSale, STATUS: handleStatus, VOID: handleVoid }[opType]}
+            disabled={!vtInstalled}
+            style={styles.actionButton}
+          />
 
           {renderConfirmation()}
           {renderResult()}
@@ -385,92 +372,34 @@ export default function VTPayment({ incomingLink }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
+  safeArea: ui.screen,
   keyboardView: {
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  subHeader: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
+    padding: 16,
+    paddingBottom: 48,
   },
   warningCard: {
-    backgroundColor: '#fff3cd',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
+    ...ui.card,
+    backgroundColor: colors.sand,
   },
-  warningText: {
-    color: '#856404',
-    fontSize: 14,
-  },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
+  warningText: ui.body,
+  section: ui.card,
+  sectionTitle: ui.sectionTitle,
   opTypeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
   },
   opTypeButton: {
+    ...ui.chip,
     flex: 1,
-    paddingVertical: 10,
-    marginHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: '#e9ecef',
     alignItems: 'center',
+    paddingVertical: 12,
   },
-  opTypeButtonActive: {
-    backgroundColor: '#00a8e8',
-  },
-  opTypeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-  },
-  opTypeButtonTextActive: {
-    color: '#fff',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    marginBottom: 10,
-    backgroundColor: '#fafafa',
-  },
+  opTypeButtonActive: ui.chipSelected,
+  opTypeButtonText: ui.chipText,
+  input: ui.input,
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,72 +411,29 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   smallButton: {
-    backgroundColor: '#e9ecef',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     marginBottom: 10,
   },
-  smallButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#495057',
-  },
   actionButton: {
-    backgroundColor: '#00a8e8',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resultCard: ui.card,
+  resultTitle: {
+    ...ui.badge,
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     marginBottom: 12,
   },
-  statusButton: {
-    backgroundColor: '#6c757d',
-  },
-  voidButton: {
-    backgroundColor: '#dc3545',
-  },
-  actionButtonDisabled: {
-    backgroundColor: '#adb5bd',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  resultCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  resultTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
   resultLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
+    ...ui.body,
     marginBottom: 4,
   },
-  resultText: {
-    fontSize: 13,
-    color: '#333',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  rawLabel: {
+    ...ui.muted,
+    fontFamily: fonts.medium,
+    marginBottom: 6,
   },
-  footer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#aaa',
-  },
+  resultText: ui.mono,
+  footer: ui.footer,
+  footerText: ui.footerText,
 });

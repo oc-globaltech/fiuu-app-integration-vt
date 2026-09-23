@@ -13,13 +13,15 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import {
   fetchTransactions,
   describeStatus,
   formatWhen,
 } from '../utils/transactions';
+import Hero from './Hero';
+import Pill from './Pill';
+import { colors, fonts, ui } from '../theme';
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -44,7 +46,7 @@ export default function Transactions() {
     const { label, color } = describeStatus(item.status);
 
     return (
-      <View style={[styles.row, { borderLeftColor: color }]}>
+      <View style={styles.row}>
         <View style={styles.rowTop}>
           <Text style={styles.orderId} numberOfLines={1}>
             {item.order_id}
@@ -88,29 +90,36 @@ export default function Transactions() {
   if (loading) {
     return (
       <View style={styles.centre}>
-        <ActivityIndicator size="large" color="#00a8e8" />
+        <ActivityIndicator size="large" color={colors.ink} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          Transactions{transactions.length ? ` (${transactions.length})` : ''}
-        </Text>
-        <TouchableOpacity style={styles.refresh} onPress={() => load(true)}>
-          <Text style={styles.refreshText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-
-      {!!error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
       <FlatList
+        ListHeaderComponent={
+          <>
+            <Hero
+              lines={['Transactions']}
+              character={require('../../assets/lottie/notify.json')}
+            />
+            <View style={styles.header}>
+              <Text style={styles.title}>
+                {transactions.length
+                  ? `${transactions.length} notified by Fiuu`
+                  : 'Notified by Fiuu'}
+              </Text>
+              <Pill title="Refresh" onPress={() => load(true)} />
+            </View>
+
+            {!!error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+          </>
+        }
         data={transactions}
         keyExtractor={(item) => item.order_id}
         renderItem={renderItem}
@@ -119,7 +128,11 @@ export default function Transactions() {
           transactions.length ? styles.listContent : styles.listContentEmpty
         }
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => load(true)}
+            tintColor={colors.ink}
+          />
         }
       />
     </View>
@@ -127,61 +140,46 @@ export default function Transactions() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: ui.screen,
+  centre: { ...ui.screen, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 14,
+    marginLeft: 4,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#212529' },
-  refresh: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#00a8e8',
-  },
-  refreshText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  listContent: { paddingHorizontal: 16, paddingBottom: 24 },
-  listContentEmpty: { flexGrow: 1, paddingHorizontal: 16 },
-  row: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    padding: 14,
-    marginBottom: 10,
-  },
+  title: { fontFamily: fonts.medium, fontSize: 20, color: colors.ink },
+  listContent: { padding: 16, paddingBottom: 32 },
+  listContentEmpty: { flexGrow: 1, padding: 16 },
+  row: { ...ui.card, marginBottom: 10, paddingHorizontal: 28 },
   rowTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  orderId: { fontSize: 15, fontWeight: '700', color: '#212529', flex: 1, marginRight: 8 },
-  badge: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    overflow: 'hidden',
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+  orderId: { ...ui.body, fontFamily: fonts.medium, flex: 1, marginRight: 8 },
+  badge: ui.badge,
+  amount: {
+    fontFamily: fonts.medium,
+    fontSize: 53,
+    lineHeight: 58,
+    letterSpacing: 53 * -0.04,
+    color: colors.ink,
+    marginTop: 4,
   },
-  amount: { fontSize: 20, fontWeight: '700', color: '#212529', marginTop: 6 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
-  meta: { fontSize: 12, color: '#6c757d', marginRight: 12 },
-  when: { fontSize: 12, color: '#adb5bd', marginTop: 4 },
-  warning: { fontSize: 12, color: '#6f42c1', marginTop: 6, fontWeight: '600' },
-  errorBox: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f8d7da',
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  meta: { ...ui.muted, marginRight: 12 },
+  when: { ...ui.muted, marginTop: 2 },
+  warning: {
+    ...ui.badge,
+    backgroundColor: colors.sky,
+    color: colors.white,
+    marginTop: 8,
   },
-  errorText: { color: '#842029', fontSize: 13 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#495057', marginBottom: 8 },
-  emptyText: { fontSize: 13, color: '#6c757d', textAlign: 'center', lineHeight: 19 },
+  errorBox: { ...ui.card, backgroundColor: colors.coral },
+  errorText: { ...ui.body, fontFamily: fonts.medium, color: colors.white },
+  empty: { ...ui.card, alignItems: 'center', paddingVertical: 32 },
+  emptyTitle: { ...ui.sectionTitle, marginLeft: 0, marginBottom: 8 },
+  emptyText: { ...ui.muted, textAlign: 'center' },
 });

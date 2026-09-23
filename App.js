@@ -7,11 +7,22 @@ import {
 } from 'react-native';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+// Per-weight paths: the package index would bundle every weight.
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import XDKPayment from './src/components/XDKPayment';
 import VTPayment from './src/components/VTPayment';
 import Transactions from './src/components/Transactions';
 import { parseVTResponse } from './src/utils/vtDeepLink';
 import { readPendingOrder } from './src/utils/pendingOrder';
+import { colors, fonts, radius } from './src/theme';
+
+const TABS = [
+  { key: 'xdk', title: 'Mobile XDK' },
+  { key: 'vt', title: 'Terminal' },
+  { key: 'txn', title: 'Transactions' },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('xdk');
@@ -22,6 +33,7 @@ export default function App() {
   // dropped. Listening at the root means the return is caught whatever is on
   // screen, and we switch to the VT tab to show it.
   const [vtLink, setVtLink] = useState(null);
+  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium });
 
   useEffect(() => {
     const receive = (url) => {
@@ -43,35 +55,35 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
+  // The link listener above is already running, so nothing is missed while the
+  // fonts load; the screens just wait for them so no text renders unstyled.
+  // A font that fails to load falls back to the system face rather than
+  // leaving a blank screen - which would also hide a VT result.
+  if (!fontsLoaded && !fontError) return <View style={styles.container} />;
+
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
 
       <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'xdk' && styles.tabActive]}
-          onPress={() => setActiveTab('xdk')}
-        >
-          <Text style={[styles.tabText, activeTab === 'xdk' && styles.tabTextActive]}>
-            Mobile XDK
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'vt' && styles.tabActive]}
-          onPress={() => setActiveTab('vt')}
-        >
-          <Text style={[styles.tabText, activeTab === 'vt' && styles.tabTextActive]}>
-            Virtual Terminal
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'txn' && styles.tabActive]}
-          onPress={() => setActiveTab('txn')}
-        >
-          <Text style={[styles.tabText, activeTab === 'txn' && styles.tabTextActive]}>
-            Transactions
-          </Text>
-        </TouchableOpacity>
+        {TABS.map(({ key, title }) => {
+          const active = activeTab === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => setActiveTab(key)}
+            >
+              <Text
+                style={styles.tabText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {title}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.screen}>
@@ -86,34 +98,32 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.cream,
   },
+  // Floating white pill on the cream: the nav's lift is the colour change alone.
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingTop: 50,
-    paddingBottom: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    marginTop: 58,
+    marginHorizontal: 16,
+    padding: 5,
+    gap: 4,
+    borderRadius: radius.round,
+    backgroundColor: colors.white,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    borderRadius: 8,
-    marginHorizontal: 2,
+    borderRadius: radius.round,
   },
   tabActive: {
-    backgroundColor: '#00a8e8',
+    backgroundColor: colors.grass,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#495057',
-  },
-  tabTextActive: {
-    color: '#fff',
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: colors.ink,
   },
   screen: {
     flex: 1,

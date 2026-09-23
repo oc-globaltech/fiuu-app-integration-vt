@@ -12,9 +12,11 @@ import {
   Platform,
   Switch,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { startPayment } from 'fiuu-mobile-xdk-expo';
 import { parsePaymentResult, STATUS_COLORS } from '../utils/paymentResult';
+import Hero from './Hero';
+import Pill from './Pill';
+import { colors, fonts, radius, ui } from '../theme';
 import { confirmPayment } from '../utils/paymentStatus';
 import {
   CHANNEL_GROUPS,
@@ -140,7 +142,7 @@ export default function XDKPayment() {
       : state === 'recorded' ? STATUS_COLORS.FAILED
       : STATUS_COLORS.PENDING;
 
-    return <Text style={[styles.confirmLine, { color }]}>{text}</Text>;
+    return <Text style={[styles.confirmLine, { backgroundColor: color }]}>{text}</Text>;
   };
 
   const renderResult = () => {
@@ -150,8 +152,8 @@ export default function XDKPayment() {
     const statusColor = STATUS_COLORS[status] || STATUS_COLORS.FAILED;
 
     return (
-      <View style={[styles.resultCard, { borderLeftColor: statusColor }]}>
-        <Text style={[styles.resultTitle, { color: statusColor }]}>
+      <View style={styles.resultCard}>
+        <Text style={[styles.resultTitle, { backgroundColor: statusColor }]}>
           Payment {status}
         </Text>
         {!!message && <Text style={styles.resultLabel}>{message}</Text>}
@@ -165,7 +167,7 @@ export default function XDKPayment() {
           </Text>
         )}
         {renderConfirmation()}
-        <Text style={styles.resultLabel}>Raw response:</Text>
+        <Text style={styles.rawLabel}>Raw response</Text>
         <Text style={styles.resultText}>{JSON.stringify(fields, null, 2)}</Text>
       </View>
     );
@@ -173,19 +175,22 @@ export default function XDKPayment() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="auto" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <Text style={styles.header}>Fiuu Mobile XDK</Text>
-          <Text style={styles.subHeader}>Payment Integration Demo</Text>
+          <Hero
+            lines={['Mobile XDK']}
+            tagline="Take a payment in-app with the Fiuu SDK."
+            character={require('../../assets/lottie/pay.json')}
+          />
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Merchant Credentials</Text>
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Merchant ID *"
               value={merchantId}
               onChangeText={setMerchantId}
@@ -193,6 +198,7 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Verification Key *"
               value={verificationKey}
               onChangeText={setVerificationKey}
@@ -201,6 +207,7 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Username (optional)"
               value={username}
               onChangeText={setUsername}
@@ -208,6 +215,7 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Password (optional)"
               value={password}
               onChangeText={setPassword}
@@ -216,6 +224,7 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="App Name (optional)"
               value={appName}
               onChangeText={setAppName}
@@ -225,8 +234,9 @@ export default function XDKPayment() {
               <Switch
                 value={sandboxMode}
                 onValueChange={setSandboxMode}
-                trackColor={{ false: '#767577', true: '#00a8e8' }}
-                thumbColor={sandboxMode ? '#fff' : '#f4f3f4'}
+                trackColor={{ false: colors.sand, true: colors.grass }}
+                thumbColor={colors.white}
+                ios_backgroundColor={colors.sand}
               />
             </View>
           </View>
@@ -236,6 +246,7 @@ export default function XDKPayment() {
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholderTextColor={colors.stone}
                 placeholder="Amount * (min 1.01)"
                 value={amount}
                 onChangeText={setAmount}
@@ -243,6 +254,7 @@ export default function XDKPayment() {
               />
               <TextInput
                 style={[styles.input, styles.flex1]}
+                placeholderTextColor={colors.stone}
                 placeholder="Currency"
                 value={currency}
                 onChangeText={setCurrency}
@@ -251,13 +263,12 @@ export default function XDKPayment() {
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, styles.flex1, styles.marginRight]}
+                placeholderTextColor={colors.stone}
                 placeholder="Order ID"
                 value={orderId}
                 onChangeText={setOrderId}
               />
-              <TouchableOpacity style={styles.smallButton} onPress={generateNewOrderId}>
-                <Text style={styles.smallButtonText}>New ID</Text>
-              </TouchableOpacity>
+              <Pill title="New ID" onPress={generateNewOrderId} style={styles.smallButton} />
             </View>
 
             <TouchableOpacity
@@ -284,10 +295,7 @@ export default function XDKPayment() {
                   }}
                 >
                   <Text
-                    style={[
-                      styles.chipText,
-                      channel === MULTI_CHANNEL && styles.chipTextSelected,
-                    ]}
+                    style={styles.chipText}
                   >
                     All channels (let Fiuu show the list)
                   </Text>
@@ -309,10 +317,7 @@ export default function XDKPayment() {
                             }}
                           >
                             <Text
-                              style={[
-                                styles.chipText,
-                                selected && styles.chipTextSelected,
-                              ]}
+                              style={styles.chipText}
                             >
                               {item.name}
                             </Text>
@@ -326,6 +331,7 @@ export default function XDKPayment() {
             )}
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Country (e.g. MY, SG, ID)"
               value={country}
               onChangeText={setCountry}
@@ -334,12 +340,14 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Bill Name"
               value={billName}
               onChangeText={setBillName}
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Bill Email"
               value={billEmail}
               onChangeText={setBillEmail}
@@ -348,6 +356,7 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Bill Mobile"
               value={billMobile}
               onChangeText={setBillMobile}
@@ -355,21 +364,20 @@ export default function XDKPayment() {
             />
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.stone}
               placeholder="Bill Description"
               value={billDescription}
               onChangeText={setBillDescription}
             />
           </View>
 
-          <TouchableOpacity
-            style={[styles.payButton, loading && styles.payButtonDisabled]}
+          <Pill
+            variant="action"
+            title={loading ? 'Processing...' : 'Pay with Fiuu'}
             onPress={handleStartPayment}
             disabled={loading}
-          >
-            <Text style={styles.payButtonText}>
-              {loading ? 'Processing...' : 'Pay with Fiuu'}
-            </Text>
-          </TouchableOpacity>
+            style={styles.payButton}
+          />
 
           {renderResult()}
 
@@ -385,57 +393,17 @@ export default function XDKPayment() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
+  safeArea: ui.screen,
   keyboardView: {
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  subHeader: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingBottom: 48,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    marginBottom: 10,
-    backgroundColor: '#fafafa',
-  },
+  section: ui.card,
+  sectionTitle: ui.sectionTitle,
+  input: ui.input,
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -447,150 +415,94 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   smallButton: {
-    backgroundColor: '#e9ecef',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     marginBottom: 10,
-  },
-  smallButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#495057',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 6,
+    marginLeft: 4,
   },
-  toggleLabel: {
-    fontSize: 15,
-    color: '#333',
-  },
+  toggleLabel: ui.body,
   payButton: {
-    backgroundColor: '#00a8e8',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  payButtonDisabled: {
-    backgroundColor: '#99d6f0',
-  },
-  payButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    marginBottom: 16,
   },
   confirmLine: {
+    ...ui.badge,
     fontSize: 13,
-    fontWeight: '600',
-    marginTop: 6,
-    marginBottom: 2,
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
   },
   channelSelect: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: radius.round,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.sand,
   },
   channelSelectLabel: {
-    fontSize: 11,
-    color: '#888',
-    marginBottom: 2,
+    ...ui.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.ink,
   },
   channelSelectValue: {
-    fontSize: 15,
-    color: '#222',
-    fontWeight: '600',
+    fontFamily: fonts.medium,
+    fontSize: 16,
+    color: colors.ink,
   },
   channelChevron: {
     fontSize: 12,
-    color: '#888',
+    color: colors.ink,
     marginLeft: 8,
   },
   channelPanel: {
-    borderWidth: 1,
-    borderColor: '#e2e2e2',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 30,
+    padding: 16,
     marginBottom: 10,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.cream,
   },
   channelGroup: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
-    textTransform: 'uppercase',
+    ...ui.muted,
+    fontFamily: fonts.medium,
     marginTop: 10,
     marginBottom: 6,
+    marginLeft: 4,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   chip: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    ...ui.chip,
     marginRight: 6,
     marginBottom: 6,
-    backgroundColor: '#fff',
   },
-  chipSelected: {
-    backgroundColor: '#0d6efd',
-    borderColor: '#0d6efd',
-  },
-  chipText: {
-    fontSize: 13,
-    color: '#333',
-  },
-  chipTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  resultCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
+  chipSelected: ui.chipSelected,
+  chipText: ui.chipText,
+  resultCard: ui.card,
   resultTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    ...ui.badge,
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 12,
   },
   resultLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 4,
+    ...ui.body,
+    marginBottom: 2,
   },
-  resultText: {
-    fontSize: 13,
-    color: '#333',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  rawLabel: {
+    ...ui.muted,
+    fontFamily: fonts.medium,
+    marginTop: 12,
+    marginBottom: 6,
   },
-  footer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#aaa',
-  },
+  resultText: ui.mono,
+  footer: ui.footer,
+  footerText: ui.footerText,
 });

@@ -14,14 +14,14 @@ const FUNCTION_URL = SUPABASE_URL
 
 /** '00' paid, '11' declined, '22' pending, '-1' signature failed. */
 export const TRANSACTION_STATUS = {
-  '00': { label: 'PAID', color: '#28a745' },
-  '11': { label: 'FAILED', color: '#dc3545' },
-  '22': { label: 'PENDING', color: '#ffc107' },
-  '-1': { label: 'UNVERIFIED', color: '#6f42c1' },
+  '00': { label: 'PAID', color: '#8ed462' },
+  '11': { label: 'FAILED', color: '#ff705d' },
+  '22': { label: 'PENDING', color: '#f5e211' },
+  '-1': { label: 'UNVERIFIED', color: '#2ba0ff' },
 };
 
 export const describeStatus = (status) =>
-  TRANSACTION_STATUS[status] || { label: status || 'UNKNOWN', color: '#6c757d' };
+  TRANSACTION_STATUS[status] || { label: status || 'UNKNOWN', color: '#e0dbce' };
 
 /**
  * @returns {Promise<{ok: boolean, transactions: object[], error?: string}>}

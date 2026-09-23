@@ -45,7 +45,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withSceneDelegate"
+      "./plugins/withSceneDelegate",
+      "expo-font"
     ]
   }
 }
