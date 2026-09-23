@@ -120,7 +120,9 @@ export default function VTPayment({ incomingLink }) {
 
       // The deep link is the device's account of the payment. Confirm it
       // against what Fiuu actually notified before treating it as money.
-      if (parsed.orderId) checkServer(parsed.orderId);
+      // Not after a VOID: our server only records payment notifications, so it
+      // would still find the original sale and report the order as paid.
+      if (parsed.orderId && (parsed.opType || opType) !== 'VOID') checkServer(parsed.orderId);
     }
   };
 
