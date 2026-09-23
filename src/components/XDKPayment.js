@@ -12,7 +12,7 @@ import {
   Platform,
   Switch,
 } from 'react-native';
-import { startPayment } from 'fiuu-mobile-xdk-expo';
+import { runXdk } from '../utils/xdk';
 import { parsePaymentResult, STATUS_COLORS } from '../utils/paymentResult';
 import Hero from './Hero';
 import Pill from './Pill';
@@ -70,7 +70,11 @@ export default function XDKPayment() {
     }
 
     const paymentDetails = {
+      // The switch picks the server as well as dev mode - mp_dev_mode alone does
+      // not change where the request goes. Sandbox: '4' + dev mode; production:
+      // '2' without it. Credentials only work against the server they belong to.
       mp_dev_mode: sandboxMode,
+      mp_core_env: sandboxMode ? '4' : '2',
       mp_username: username,
       mp_password: password,
       mp_merchant_ID: merchantId,
@@ -95,7 +99,6 @@ export default function XDKPayment() {
       // channel. Credit channels cannot use it (Fiuu security requirement).
       mp_express_mode: channel !== MULTI_CHANNEL && !isCreditChannel(channel),
       mp_language: 'EN',
-      mp_core_env: '4',
     };
 
     console.log('Sending payment details:', JSON.stringify(paymentDetails, null, 2));
@@ -104,7 +107,7 @@ export default function XDKPayment() {
     setResult(null);
     setConfirmation(null);
 
-    startPayment(paymentDetails, (paymentResult) => {
+    runXdk(paymentDetails).then((paymentResult) => {
       setLoading(false);
       console.log('Fiuu Payment Result:', paymentResult);
 
@@ -114,6 +117,10 @@ export default function XDKPayment() {
         `Payment ${parsed.status}`,
         parsed.message || `Order ${parsed.orderId || orderId}`
       );
+
+      // An SDK error (bad credentials, no network) means no transaction was
+      // ever created, so there is nothing for the server to confirm.
+      if (parsed.fields.Error) return;
 
       // The device's word is not proof. Ask our server what Fiuu actually
       // notified, which is the record that counts.
