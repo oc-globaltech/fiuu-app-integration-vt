@@ -322,7 +322,7 @@ distinguishes a broken webhook from a Fiuu-side configuration problem in one com
 |---|---|
 | `POST /` | Fiuu's Notification / Callback URL |
 | `GET /?order_id=X` | The app asking whether an order is paid |
-| `GET /?list=1` | The Transactions tab, gated on `x-app-token` |
+| `GET /?list=1[&sync=1]` | The Transactions tab, gated on `x-app-token`; `sync=1` pulls Fiuu's daily report first |
 | `GET /` | Health probe — the portal's **Check** button |
 
 ### Signature verification
@@ -354,7 +354,7 @@ the service role key and is the only way in or out. The app never talks to the t
 
 ### The transaction list, and its security note
 
-The **Transactions** tab lists every payment Fiuu has notified, newest first, with pull to
+The **Transactions** tab lists Fiuu's record of the merchant's payments, newest first, with pull to
 refresh. It reads `GET /?list=1`, which requires an `x-app-token` header matching the
 `FIUU_APP_TOKEN` function secret.
 
@@ -364,9 +364,13 @@ card data is exposed — Fiuu never sends any — and the token grants no write 
 merchant-operated device that is usually an acceptable trade. If this app ever reaches customers'
 phones, replace the shared token with real Supabase auth and per-user RLS.
 
-**Coverage.** A transaction appears only if Fiuu sent a webhook for it, so anything that happened
-before the Notification URL was configured will not be listed. Fiuu's requery / Verify Payment API
-is the way to backfill those; it is not implemented here.
+**Coverage.** Webhooks alone miss a lot: VT card-present payments never send one, and a void
+after a sale does not either. So the app calls `GET /?list=1&sync=1`, which first pulls Fiuu's
+Daily Transaction Report (`psq-daily.php`, last 7 days, Malaysia time) and upserts it, taking
+Fiuu's `StatCode` and `StatName` (`captured`, `cancelled`, `chargeback`, ...). `GET /?order_id=`
+does the same for a single order it has not heard of. Fiuu blocks rapid report calls, so the sync
+runs at most once a minute per function instance. Sandbox merchants set the `FIUU_API_BASE`
+secret to `https://sandbox-api.fiuu.com`.
 
 ---
 
