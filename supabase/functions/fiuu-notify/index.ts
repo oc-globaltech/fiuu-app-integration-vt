@@ -3,6 +3,9 @@
  *
  * POST  - Fiuu's Notify URL / Callback URL. Verifies skey, upserts the payment.
  * GET   - ?order_id=... so the app can confirm a payment was actually recorded.
+ *         ?list=1[&sync=1] for the app's transaction list; sync first pulls
+ *         Fiuu's Daily Transaction Report so VT payments (which never send a
+ *         notification) and later voids show up.
  *
  * Deploy with verify_jwt = false: Fiuu cannot send a Supabase JWT. Authenticity
  * comes from the skey hash, which only someone holding the merchant secret key
@@ -17,12 +20,21 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { verifySkey } from './skey.ts';
+import { fromMyt, mytDate, paymentsFromReport, reportUrl } from './report.ts';
 
 const SECRET_KEY = Deno.env.get('FIUU_SECRET_KEY') ?? '';
 const MERCHANT_ID = Deno.env.get('FIUU_MERCHANT_ID') ?? '';
 // Sandbox merchants must ACK to the sandbox host.
 const ACK_URL = Deno.env.get('FIUU_ACK_URL') ??
   'https://pay.fiuu.com/RMS/API/chkstat/returnipn.php';
+// Sandbox merchants: https://sandbox-api.fiuu.com
+const API_BASE = Deno.env.get('FIUU_API_BASE') ?? 'https://api.fiuu.com';
+const SYNC_DAYS = 7;
+// Fiuu blocks "excessive and rapid" report calls without notice (spec v13.93),
+// and the VT screen polls every few seconds.
+// ponytail: per-isolate throttle; move lastSync into a table if cold starts pile up.
+const SYNC_MIN_MS = 60_000;
+let lastSync = 0;
 
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -63,6 +75,35 @@ async function acknowledge(p: Record<string, string>): Promise<void> {
   }
 }
 
+/**
+ * Upsert Fiuu's own record of the last `days` days (Malaysia time) over ours.
+ * Returns an error message instead of throwing, so a Fiuu outage never hides
+ * the rows we already have.
+ */
+async function syncFromFiuu(days: number): Promise<string | null> {
+  if (!MERCHANT_ID || !SECRET_KEY) return 'FIUU_MERCHANT_ID / FIUU_SECRET_KEY not set';
+  if (Date.now() - lastSync < SYNC_MIN_MS) return null;
+  lastSync = Date.now();
+  try {
+    const res = await fetch(reportUrl(API_BASE, MERCHANT_ID, SECRET_KEY, mytDate(days), days + 1));
+    const text = await res.text();
+    let report: unknown;
+    try {
+      report = JSON.parse(text);
+    } catch {
+      return `Fiuu report: ${text.slice(0, 200)}`;
+    }
+    // ponytail: first page only; add `page` looping past a few hundred txns a week.
+    if (!Array.isArray(report)) return `Fiuu report: ${JSON.stringify(report).slice(0, 200)}`;
+    const rows = paymentsFromReport(report);
+    if (!rows.length) return null;
+    const { error } = await db.from('fiuu_payments').upsert(rows, { onConflict: 'order_id' });
+    return error ? error.message : null;
+  } catch (err) {
+    return `Fiuu report: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'GET') {
     const url = new URL(req.url);
@@ -95,14 +136,16 @@ Deno.serve(async (req: Request) => {
       if (!appToken || req.headers.get('x-app-token') !== appToken) {
         return Response.json({ error: 'unauthorised' }, { status: 401 });
       }
+      const syncError = url.searchParams.get('sync') === '1' ? await syncFromFiuu(SYNC_DAYS) : null;
+      if (syncError) console.error('fiuu sync failed', syncError);
       const limit = Math.min(Number(url.searchParams.get('limit') ?? 100) || 100, 200);
       const { data, error } = await db
         .from('fiuu_payments')
-        .select('order_id, txn_id, status, amount, currency, channel, paydate, verified, created_at')
-        .order('created_at', { ascending: false })
+        .select('order_id, txn_id, status, stat_name, amount, currency, channel, paydate, verified, created_at')
+        .order('paydate', { ascending: false, nullsFirst: false })
         .limit(limit);
       if (error) return Response.json({ error: error.message }, { status: 500 });
-      return Response.json({ count: data?.length ?? 0, transactions: data ?? [] });
+      return Response.json({ count: data?.length ?? 0, transactions: data ?? [], syncError });
     }
 
     const orderId = url.searchParams.get('order_id');
@@ -111,11 +154,17 @@ Deno.serve(async (req: Request) => {
     if (!orderId) {
       return Response.json({ ok: true, endpoint: 'fiuu-notify' });
     }
-    const { data } = await db
+    const lookup = () => db
       .from('fiuu_payments')
-      .select('order_id, txn_id, status, amount, currency, channel, paydate, verified')
+      .select('order_id, txn_id, status, stat_name, amount, currency, channel, paydate, verified')
       .eq('order_id', orderId)
       .maybeSingle();
+    let { data } = await lookup();
+    // VT card-present payments never notify us; ask Fiuu before saying no.
+    if (!data) {
+      await syncFromFiuu(1);
+      ({ data } = await lookup());
+    }
 
     // Unverified rows are not evidence of payment.
     const paid = !!data && data.verified && data.status === '00';
@@ -166,10 +215,11 @@ Deno.serve(async (req: Request) => {
     order_id: p.orderid,
     txn_id: p.tranID ?? null,
     status,
+    stat_name: null,
     amount: p.amount ? Number(p.amount) : null,
     currency: p.currency ?? null,
     channel: p.channel ?? null,
-    paydate: p.paydate ? p.paydate.replace(' ', 'T') : null,
+    paydate: fromMyt(p.paydate),
     appcode: p.appcode ?? null,
     error_code: p.error_code ?? null,
     error_desc: p.error_desc ?? null,
