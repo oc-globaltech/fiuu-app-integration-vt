@@ -1,10 +1,9 @@
 /**
- * Reads the transaction list recorded by the fiuu-notify webhook.
+ * Reads the transaction list kept by the fiuu-notify function.
  *
- * These are payments Fiuu notified us about, not the app's own record of what
- * it tried. A transaction only appears here if Fiuu sent a webhook for it, so
- * anything that predates the webhook going live will be missing - see the
- * README for backfilling those through Fiuu's requery API.
+ * Rows come from Fiuu's webhooks plus a sync against Fiuu's Daily Transaction
+ * Report (last 7 days) run on every fetch, so VT card-present payments - which
+ * never notify - and later voids show Fiuu's current status.
  */
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, FIUU_APP_TOKEN } from '@env';
 
@@ -20,8 +19,17 @@ export const TRANSACTION_STATUS = {
   '-1': { label: 'UNVERIFIED', color: '#2ba0ff' },
 };
 
-export const describeStatus = (status) =>
-  TRANSACTION_STATUS[status] || { label: status || 'UNKNOWN', color: '#e0dbce' };
+const NEUTRAL = '#e0dbce';
+// Fiuu's StatName says more than StatCode: a voided sale is '11' like a
+// decline, but it is not a failure.
+const NAME_COLOR = { cancelled: NEUTRAL, release: NEUTRAL, chargeback: '#ff705d' };
+
+export function describeStatus(status, statName) {
+  const byCode = TRANSACTION_STATUS[status] || { label: status || 'UNKNOWN', color: NEUTRAL };
+  if (!statName) return byCode;
+  const name = statName.toLowerCase();
+  return { label: name.toUpperCase(), color: NAME_COLOR[name] || byCode.color };
+}
 
 /**
  * @returns {Promise<{ok: boolean, transactions: object[], error?: string}>}
@@ -35,7 +43,7 @@ export async function fetchTransactions({ limit = 100 } = {}) {
   }
 
   try {
-    const response = await fetch(`${FUNCTION_URL}?list=1&limit=${limit}`, {
+    const response = await fetch(`${FUNCTION_URL}?list=1&sync=1&limit=${limit}`, {
       headers: {
         apikey: SUPABASE_PUBLISHABLE_KEY || '',
         'x-app-token': FIUU_APP_TOKEN,
@@ -50,7 +58,12 @@ export async function fetchTransactions({ limit = 100 } = {}) {
     }
 
     const body = await response.json();
-    return { ok: true, transactions: body.transactions || [] };
+    return {
+      ok: true,
+      transactions: body.transactions || [],
+      // The list still loads from our copy when Fiuu's report is unreachable.
+      warning: body.syncError ? `Could not refresh from Fiuu: ${body.syncError}` : null,
+    };
   } catch (err) {
     return { ok: false, transactions: [], error: String(err?.message || err) };
   }

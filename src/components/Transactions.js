@@ -1,9 +1,8 @@
 /**
- * Every payment Fiuu has notified us about, newest first.
- *
- * This is the server's record, not the device's. A row here means Fiuu sent a
- * webhook; PAID means its signature also verified. UNVERIFIED (-1) is a
- * notification whose skey did not match and must not be treated as money.
+ * Fiuu's record of our payments, newest first: webhooks plus a sync from
+ * Fiuu's daily report, so the badge follows Fiuu (CAPTURED, CANCELLED, ...).
+ * UNVERIFIED (-1) is a notification whose skey did not match and must not be
+ * treated as money.
  */
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -33,7 +32,7 @@ export default function Transactions() {
     if (isRefresh) setRefreshing(true);
     const outcome = await fetchTransactions();
     setTransactions(outcome.transactions);
-    setError(outcome.ok ? null : outcome.error);
+    setError(outcome.ok ? outcome.warning : outcome.error);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -43,7 +42,7 @@ export default function Transactions() {
   }, [load]);
 
   const renderItem = ({ item }) => {
-    const { label, color } = describeStatus(item.status);
+    const { label, color } = describeStatus(item.status, item.stat_name);
 
     return (
       <View style={styles.row}>
@@ -80,8 +79,7 @@ export default function Transactions() {
       <View style={styles.empty}>
         <Text style={styles.emptyTitle}>No transactions yet</Text>
         <Text style={styles.emptyText}>
-          A payment appears here once Fiuu sends its webhook. Payments made
-          before the webhook was configured will not be listed.
+          Payments from the last 7 days appear here once Fiuu records them.
         </Text>
       </View>
     );
@@ -107,8 +105,8 @@ export default function Transactions() {
             <View style={styles.header}>
               <Text style={styles.title}>
                 {transactions.length
-                  ? `${transactions.length} notified by Fiuu`
-                  : 'Notified by Fiuu'}
+                  ? `${transactions.length} from Fiuu`
+                  : 'From Fiuu'}
               </Text>
               <Pill title="Refresh" onPress={() => load(true)} />
             </View>
